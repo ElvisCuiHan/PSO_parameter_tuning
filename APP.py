@@ -57,6 +57,24 @@ def Ridge_pso(b, X, y, cv):
 def main():
     st.title("Tuning Parameter Optimization for Regularized Regression Via PSO")
 
+    # Sidebar introduction to regularization techniques
+    st.sidebar.title("Introduction to Regularization Techniques")
+    st.sidebar.markdown("""
+        Regularization techniques such as Ridge, Lasso, and Elastic Net are used in regression analysis to prevent overfitting 
+        and improve the generalization of the model. Here's a brief overview of each technique:
+
+        - **Ridge Regression**: Also known as L2 regularization, it adds a penalty term equivalent to the square of the 
+          magnitude of coefficients. This technique shrinks the coefficients towards zero, but they never reach exactly zero.
+
+        - **Lasso Regression**: Also known as L1 regularization, it adds a penalty term equivalent to the absolute value 
+          of the magnitude of coefficients. Lasso regression not only shrinks the coefficients but also performs feature 
+          selection by setting some coefficients to exactly zero.
+
+        - **Elastic Net**: It combines the penalties of Ridge and Lasso regression. The regularization term is a mixture 
+          of both L1 and L2 penalties, allowing for learning a sparse model where few of the weights are non-zero like 
+          Lasso, while still maintaining the regularization properties of Ridge.
+    """)
+
     # Upload dataset
     st.subheader("Upload your dataset")
     st.markdown(
@@ -121,9 +139,17 @@ def main():
             st.text("Optimization finished!")
             st.text("Optimal tuning parameters:")
             result = pd.DataFrame(np.round(best_pos, 3), columns=["Tuning parameter"])
+            if regularization_type == "Elastic Net":
+                result.index = ["Lambda", "Alpha"]
+            else:
+                result.index = ["Lambda"]
             st.write(result)
             st.text("Final positions of particles:")
             result = pd.DataFrame(np.transpose(optimizer.pos_history[-1]))
+            if regularization_type == "Elastic Net":
+                result.index = ["Lambda", "Alpha"]
+            else:
+                result.index = ["Lambda"]
             st.write(result)
 
             # Plot the results
