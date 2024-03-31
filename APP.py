@@ -14,42 +14,53 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # Define Elastic_pso function
-def Elastic_pso(b, X, y, cv):
+def Elastic_pso(b, X, y, cv, task):
     n_particles = b.shape[0]
     cost = np.zeros((n_particles, ))
 
     for i in range(n_particles):
-        b[i, 0] = np.maximum(b[i, 0], 0.0001)
+        b[i, 0] = np.maximum(b[i, 0], 0.000)
         b[i, 1] = np.minimum(np.maximum(b[i, 1], 0), 1)
         elastic_net = ElasticNet(alpha=b[i, 0], l1_ratio=b[i, 1])
-        scores = cross_val_score(elastic_net, X, y, cv=cv, scoring='neg_mean_squared_error')
-        cost[i] = -np.mean(scores)
-
+        if task == "Regression":
+            scores = cross_val_score(elastic_net, X, y, cv=cv, scoring='neg_mean_squared_error')
+            cost[i] = -np.mean(scores)
+        else:
+            scores = cross_val_score(elastic_net, X, y, cv=cv, scoring='roc_auc')
+            cost[i] = np.mean(scores)
     return cost
 
 # Define Lasso_pso function
-def Lasso_pso(b, X, y, cv):
+def Lasso_pso(b, X, y, cv, task):
     n_particles = b.shape[0]
     cost = np.zeros((n_particles, ))
 
     for i in range(n_particles):
-        b[i] = np.maximum(b[i], 0.001)
+        b[i] = np.maximum(b[i], 0.00001)
         lasso_reg = Lasso(alpha=b[i, 0])
-        scores = cross_val_score(lasso_reg, X, y, cv=cv, scoring='neg_mean_squared_error')
-        cost[i] = -np.mean(scores)
+        if task == "Regression":
+            scores = cross_val_score(lasso_reg, X, y, cv=cv, scoring='neg_mean_squared_error')
+            cost[i] = -np.mean(scores)
+        else:
+            scores = cross_val_score(lasso_reg, X, y, cv=cv, scoring='roc_auc')
+            cost[i] = np.mean(scores)
 
     return cost
 
 # Define Ridge_pso function
-def Ridge_pso(b, X, y, cv):
+def Ridge_pso(b, X, y, cv, task):
     n_particles = b.shape[0]
     cost = np.zeros((n_particles, ))
 
     for i in range(n_particles):
-        b[i] = np.maximum(b[i], 0.001)
+        b[i] = np.maximum(b[i], 0.00001)
         ridge_reg = Ridge(alpha=b[i, 0] * len(y) * 2)
-        scores = cross_val_score(ridge_reg, X, y, cv=cv, scoring='neg_mean_squared_error')
-        cost[i] = -np.mean(scores)
+        if task == "Regression":
+            scores = cross_val_score(ridge_reg, X, y, cv=cv, scoring='neg_mean_squared_error')
+            cost[i] = -np.mean(scores)
+        else:
+            scores = cross_val_score(ridge_reg, X, y, cv=cv, scoring='roc_auc')
+            cost[i] = np.mean(scores)
 
     return cost
 
@@ -83,6 +94,10 @@ def main():
     )
     uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
 
+    st.markdown(
+        """<span style="font-weight:bold;color:magenta;">Optimization Parameters:</span>""",
+        unsafe_allow_html=True,
+    )
     # Number of particles and iterations in the same row
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -92,8 +107,19 @@ def main():
     with col3:
         cv = st.number_input("Number of cross-validation folds", min_value=2, max_value=10, step=1, value=3)
 
-    # Choose regularization type
-    regularization_type = st.radio("Regularization type", ("Elastic Net", "Lasso", "Ridge"))
+    st.markdown(
+        """<span style="font-weight:bold;color:magenta;">Task and Regularization:</span>""",
+        unsafe_allow_html=True,
+    )
+    # Choose task (regression or classification)
+    # Task type radio buttons
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        task_type = st.radio("Task type", ("Regression", "Classification"), format_func=lambda x: x, index=0,
+                             key="task_type")
+    with col2:
+        # Choose regularization type
+        regularization_type = st.radio("Regularization type", ("Elastic Net", "Lasso", "Ridge"))
 
     # Option to show progress bar
     show_progress_bar = st.checkbox("Show progress bar", value=True)
@@ -110,7 +136,12 @@ def main():
 
             # Preprocess dataset
             scaler = StandardScaler()
-            data_scale = scaler.fit_transform(data)
+            if task_type == "Regression":
+                data_scale = scaler.fit_transform(data)
+            else:
+                cache = scaler.fit_transform(data.iloc[:, 1:])
+                data_scale = np.hstack([np.array(data.iloc[:, 0]).reshape((-1, 1)), cache])
+
             y = data_scale[:, 0]
             X = data_scale[:, 1:]
             y_cache = y.copy()
@@ -132,7 +163,7 @@ def main():
                 optimize_func = Ridge_pso
 
             for i in range(n_iterations):
-                best_cost, best_pos = optimizer.optimize(optimize_func, iters=1, X=X, y=y, cv=cv)
+                best_cost, best_pos = optimizer.optimize(optimize_func, iters=1, X=X, y=y, cv=cv, task=task_type)
                 progress_bar.progress((i + 1) / n_iterations)
 
             # Show optimization results
@@ -162,7 +193,7 @@ def main():
                 x2 = np.linspace(0, 1, 30)
                 X_mesh, Y_mesh = np.meshgrid(x1, x2)
                 positions = np.stack((X_mesh.flatten(), Y_mesh.flatten()), axis=-1)
-                Z = Elastic_pso(positions, X=X, y=y, cv=cv).reshape(X_mesh.shape)
+                Z = Elastic_pso(positions, X=X, y=y, cv=cv, task=task_type).reshape(X_mesh.shape)
 
                 # Plot the contour plot of the loss surface
                 contour = ax.contour(X_mesh, Y_mesh, Z, levels=60, cmap='Set2')
@@ -176,7 +207,7 @@ def main():
                     x = np.linspace(0, 2, 100)  # Adjust range as needed for Lasso and Ridge
                 else:
                     x = np.linspace(0, 2.5, 100)
-                y = optimize_func(x.reshape(-1, 1), X=X_cache, y=y_cache, cv=cv)
+                y = optimize_func(x.reshape(-1, 1), X=X_cache, y=y_cache, cv=cv, task=task_type)
                 ax.set_xlabel('Tuning Parameter')
                 ax.set_ylabel('Objective Function')
 
@@ -193,7 +224,8 @@ def main():
                     particles.set_data(particle_positions[:, 0], particle_positions[:, 1])
                     ax.set_title(f'Iteration {frame + 1}')
                 else:
-                    particles.set_data(particle_positions[:, 0], optimize_func(particle_positions, X=X_cache, y=y_cache, cv=cv))
+                    particles.set_data(particle_positions[:, 0],
+                                       optimize_func(particle_positions, X=X_cache, y=y_cache, cv=cv, task=task_type))
                     ax.set_title(f'Iteration {frame + 1}')
 
                 return particles,
