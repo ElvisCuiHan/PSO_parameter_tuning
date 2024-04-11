@@ -7,6 +7,7 @@ from sklearn.linear_model import ElasticNet, Lasso, Ridge
 import matplotlib.pyplot as plt
 import pyswarms as ps
 from matplotlib.animation import FuncAnimation
+from sklearn.model_selection import KFold
 import tempfile
 import warnings
 
@@ -19,14 +20,15 @@ def Elastic_pso(b, X, y, cv, task):
     cost = np.zeros((n_particles, ))
 
     for i in range(n_particles):
+        kf = KFold(n_splits=cv, random_state=42, shuffle=True)
         b[i, 0] = np.maximum(b[i, 0], 0.000)
         b[i, 1] = np.minimum(np.maximum(b[i, 1], 0), 1)
         elastic_net = ElasticNet(alpha=b[i, 0], l1_ratio=b[i, 1])
         if task == "Regression":
-            scores = cross_val_score(elastic_net, X, y, cv=cv, scoring='neg_mean_squared_error')
+            scores = cross_val_score(elastic_net, X, y, cv=kf, scoring='neg_mean_squared_error')
             cost[i] = -np.mean(scores)
         else:
-            scores = cross_val_score(elastic_net, X, y, cv=cv, scoring='roc_auc')
+            scores = cross_val_score(elastic_net, X, y, cv=kf, scoring='roc_auc')
             cost[i] = np.mean(scores)
     return cost
 
@@ -36,13 +38,14 @@ def Lasso_pso(b, X, y, cv, task):
     cost = np.zeros((n_particles, ))
 
     for i in range(n_particles):
+        kf = KFold(n_splits=cv, random_state=42, shuffle=True)
         b[i] = np.maximum(b[i], 0.00001)
         lasso_reg = Lasso(alpha=b[i, 0])
         if task == "Regression":
-            scores = cross_val_score(lasso_reg, X, y, cv=cv, scoring='neg_mean_squared_error')
+            scores = cross_val_score(lasso_reg, X, y, cv=kf, scoring='neg_mean_squared_error')
             cost[i] = -np.mean(scores)
         else:
-            scores = cross_val_score(lasso_reg, X, y, cv=cv, scoring='roc_auc')
+            scores = cross_val_score(lasso_reg, X, y, cv=kf, scoring='roc_auc')
             cost[i] = np.mean(scores)
 
     return cost
@@ -53,13 +56,14 @@ def Ridge_pso(b, X, y, cv, task):
     cost = np.zeros((n_particles, ))
 
     for i in range(n_particles):
+        kf = KFold(n_splits=cv, random_state=42, shuffle=True)
         b[i] = np.maximum(b[i], 0.00001)
         ridge_reg = Ridge(alpha=b[i, 0] * len(y) * 2)
         if task == "Regression":
-            scores = cross_val_score(ridge_reg, X, y, cv=cv, scoring='neg_mean_squared_error')
+            scores = cross_val_score(ridge_reg, X, y, cv=kf, scoring='neg_mean_squared_error')
             cost[i] = -np.mean(scores)
         else:
-            scores = cross_val_score(ridge_reg, X, y, cv=cv, scoring='roc_auc')
+            scores = cross_val_score(ridge_reg, X, y, cv=kf, scoring='roc_auc')
             cost[i] = np.mean(scores)
 
     return cost
