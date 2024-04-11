@@ -64,6 +64,65 @@ def Ridge_pso(b, X, y, cv, task):
 
     return cost
 
+
+def SCAD(b, **kwargs):
+    """SCAD loss function.
+
+    Parameters
+    ----------
+    b : numpy.ndarray
+        sets of inputs shape :code:'(n_particles, dimensions)'
+
+    X : numpy.ndarray
+        design matrix of inputs shape:code:'(N_obs, dimensions)'
+
+    y : numpy.ndarray
+        response vector of inputs shape :code:'(N_obs)'
+
+    lam : float
+        penalty parameter lambda.
+
+    a : float
+        penalty parameter a.
+
+    rho : float
+        regularitzation parameter
+
+    Returns
+    ----------
+    numpy.ndarray
+        computed cost of size :code:`(n_particles, )`
+    """
+
+    def scad_penalty(beta_hat, lambda_val, a_val):
+        """
+        Ref
+        ----------
+        https://andrewcharlesjones.github.io/posts/2020/03/scad/
+        """
+
+        is_linear = (np.abs(beta_hat) <= lambda_val)
+        is_quadratic = np.logical_and(lambda_val < np.abs(beta_hat), np.abs(beta_hat) <= a_val * lambda_val)
+        is_constant = (a_val * lambda_val) < np.abs(beta_hat)
+
+        linear_part = lambda_val * np.abs(beta_hat) * is_linear
+        quadratic_part = (2 * a_val * lambda_val * np.abs(beta_hat) - beta_hat ** 2 - lambda_val ** 2) / (
+                2 * (a_val - 1)) * is_quadratic
+        constant_part = (lambda_val ** 2 * (a_val + 1)) / 2 * is_constant
+
+        return linear_part + quadratic_part + constant_part
+
+    X, y, lam, a, rho = kwargs.values()
+
+    # e is a nxN matrix, n=n_particles and N=n_obs
+
+    e = (y - X.dot(b))
+
+    penalty = scad_penalty(b, lam, a)
+
+    return 0.5 * (1 / len(y)) * np.linalg.norm(e) ** 2 + rho * penalty.sum()
+
+
 # Define Streamlit app
 def main():
     st.title("Tuning Parameter Optimization for Regularized Regression Via PSO")
@@ -119,7 +178,7 @@ def main():
                              key="task_type")
     with col2:
         # Choose regularization type
-        regularization_type = st.radio("Regularization type", ("Elastic Net", "Lasso", "Ridge"))
+        regularization_type = st.radio("Regularization type", ("Elastic Net", "Lasso", "Ridge", "SCAD"))
 
     # Option to show progress bar
     show_progress_bar = st.checkbox("Show progress bar", value=True)
@@ -204,9 +263,9 @@ def main():
 
             else:
                 if regularization_type == "Lasso":
-                    x = np.linspace(0, 2, 100)  # Adjust range as needed for Lasso and Ridge
+                    x = np.linspace(0, 1.5, 100)  # Adjust range as needed for Lasso and Ridge
                 else:
-                    x = np.linspace(0, 2.5, 100)
+                    x = np.linspace(0, 2., 100)
                 y = optimize_func(x.reshape(-1, 1), X=X_cache, y=y_cache, cv=cv, task=task_type)
                 ax.set_xlabel('Tuning Parameter')
                 ax.set_ylabel('Objective Function')
