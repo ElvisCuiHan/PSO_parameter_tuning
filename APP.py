@@ -146,6 +146,7 @@ def main():
     """)
 
     # Upload dataset
+    st.subheader("Author: Elvis Han Cui")
     st.subheader("Upload your dataset")
     st.markdown(
         """<span style="font-weight:bold;color:red;">The first column is the response and the rest columns are covariates.</span>""",
@@ -178,7 +179,7 @@ def main():
                              key="task_type")
     with col2:
         # Choose regularization type
-        regularization_type = st.radio("Regularization type", ("Elastic Net", "Lasso", "Ridge", "SCAD"))
+        regularization_type = st.radio("Regularization type", ("Elastic Net", "Lasso", "Ridge", "SCAD [Unavailable]"))
 
     # Option to show progress bar
     show_progress_bar = st.checkbox("Show progress bar", value=True)
