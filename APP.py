@@ -25,7 +25,8 @@ def Elastic_pso(b, X, y, cv, task):
         b[i, 1] = np.minimum(np.maximum(b[i, 1], 0), 1)
         elastic_net = ElasticNet(alpha=b[i, 0], l1_ratio=b[i, 1])
         if task == "Regression":
-            scores = cross_val_score(elastic_net, X, y, cv=kf, scoring='neg_root_mean_squared_log_error')
+            scores = cross_val_score(elastic_net, X, y, cv=kf, scoring='neg_mean_absolute_error') +\
+                cross_val_score(elastic_net, X, y, cv=kf, scoring='neg_mean_squared_error')
             cost[i] = -np.mean(scores)
         else:
             scores = cross_val_score(elastic_net, X, y, cv=kf, scoring='roc_auc')
